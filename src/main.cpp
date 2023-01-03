@@ -50,9 +50,10 @@
 #define R 31.897513915796375228513177 // Used for the logarhythmic LED fading formula
 
 // MQTT command defines
-#define MQTT_CMD_CRON 1       // MQTT command for setting cron
-#define MQTT_CMD_ADJ 0        // MQTT command is for adjusting light
 #define MQTT_CMD_ERROR -1     // MQTT command not set || error
+#define MQTT_CMD_ADJ 0        // MQTT command is for adjusting light
+#define MQTT_CMD_CRON 1       // MQTT command for setting cron
+#define MQTT_CMD_RESET 2      // MQTT command for resetting board
 
 // DEBUG
 #define DEBUG // DEBUGging flag
@@ -154,11 +155,19 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       return;
     }
 
-    int cmd_state = doc["state"];
-    int cmd_intensity = doc["intensity"];
+    int cmd_reset = -1; // No reset
+    int cmd_state = 5;
+    int cmd_intensity = -1;
     const char* cmd_cronStr = NULL;
-    if (doc["cronStr"] != "\0") {
-      cmd_cronStr = doc["cronStr"];
+    if (doc["reset"] == 1) {
+      // Reset command given
+      cmd_reset = 1;
+    } else {
+      cmd_state = doc["state"];
+      cmd_intensity = doc["intensity"];
+      if (doc["cronStr"] != "\0") {
+        cmd_cronStr = doc["cronStr"];
+      }
     }
 
     #ifdef DEBUG
@@ -182,7 +191,12 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       mqtt::command.intensity = cmd_intensity;
     }
 
-    if (cmd_cronStr != NULL) {
+    if (cmd_reset == 1) {
+      // Reset command received
+      mqtt::command.action = MQTT_CMD_RESET;
+      mqtt::command.cronStr = NULL;
+    } else if (cmd_cronStr != NULL) {
+      // Cron command received
       mqtt::command.action = MQTT_CMD_CRON;
       mqtt::command.cronStr = cmd_cronStr;
     } else {
@@ -201,7 +215,7 @@ bool mqtt::reconnect() {
   if (mqtt::client.connect(mqtt::id, mqtt::user, mqtt::password)) {
     // Once connected, publish an announcement to the housekeeing topic
     #ifdef DEBUG
-    printf("Connected to MQTT broker.\n");
+    //printf("Connected to MQTT broker.\n");
     #endif
 
     mqtt::client.publish("housekeeping", BOARDID);
@@ -487,6 +501,13 @@ void loop() {
           brightnessTargetCron = mqtt::command.intensity;
           cronOn = Cron.create((char*)mqtt::command.cronStr, cronCbOn(brightnessTargetCron, brightnessCurrent, brightnessTarget, brightnessStep), false);
         }
+      break;
+      case MQTT_CMD_RESET:
+        // Restart the ESP
+        #ifdef DEBUG
+        printf("Resettig ESP ...");
+        #endif
+        ESP.restart();
       break;
       default:
       break;
