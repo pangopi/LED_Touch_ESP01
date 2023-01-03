@@ -18,7 +18,11 @@
 #endif
 
 // Board ID
-#define BOARDID "light_salon_test"
+// Companionway light (IP 192.168.5.120)
+//#define BOARDID "light_companionway"
+//#define LIGHTID "companionway/light/main"
+// Salon light 
+#define BOARDID "light_salon"
 #define LIGHTID "salon/light/main" // Topic to ID the light for MQTT control
 
 // Pins
