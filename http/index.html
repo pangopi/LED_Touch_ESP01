@@ -80,6 +80,7 @@
         </div>
         <div>
         <button class="reset" onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":0}")'>Off</button> 
+        <button onclick='publish("salon/light/main/command", "{\"delay_off\":1}")'>Delay</button>
         <button class="reset" onclick='publish("salon/light/main/command", "{\"reset\":1}")'>Reset</button>
         </div>
 
@@ -140,6 +141,7 @@
         </div>
         <div>
         <button class="reset" onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":0}")'>Off</button> 
+        <button onclick='publish("companionway/light/main/command", "{\"delay_off\":1}")'>Delay</button>
         <button class="reset" onclick='publish("companionway/light/main/command", "{\"reset\":1}")'>Reset</button>
         </div>
 

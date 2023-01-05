@@ -23,27 +23,27 @@ client.onMessageArrived = function (message) {
 
     if (message.destinationName == "salon/light/main") {
         var status = JSON.parse(message.payloadString);
-        if (status.State >= 0) {
-            document.getElementById('stateSalon').innerHTML = states[status.State];
-            salon[0] = status.State;
+        if (status.state >= 0) {
+            document.getElementById('stateSalon').innerHTML = states[status.state];
+            salon[0] = status.state;
         }
-        if (status.Intensity >= 0) {
-            document.getElementById('intensitySalon').innerHTML = status.Intensity;
-            document.getElementById('sliderSalon').value = status.Intensity;
-            salon[1] = status.Intensity;
+        if (status.intensity >= 0) {
+            document.getElementById('intensitySalon').innerHTML = status.intensity;
+            document.getElementById('sliderSalon').value = status.intensity;
+            salon[1] = status.intensity;
         }
     }
 
     if (message.destinationName == "companionway/light/main") {
         var status = JSON.parse(message.payloadString);
-        if (status.State >= 0) {
-            document.getElementById('stateCompanionway').innerHTML = states[status.State];
-            companionway[0] = status.State;
+        if (status.state >= 0) {
+            document.getElementById('stateCompanionway').innerHTML = states[status.state];
+            companionway[0] = status.state;
         }
-        if (status.Intensity >= 0) {
-            document.getElementById('intensityCompanionway').innerHTML = status.Intensity;
-            document.getElementById('sliderCompanionway').value = status.Intensity;
-            companionway[1] = status.Intensity;
+        if (status.intensity >= 0) {
+            document.getElementById('intensityCompanionway').innerHTML = status.intensity;
+            document.getElementById('sliderCompanionway').value = status.intensity;
+            companionway[1] = status.intensity;
         }
     }
 }
