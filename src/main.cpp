@@ -2,6 +2,9 @@
 // <location>/light/<which_light>
 // Messages on this topic:
 // {state:<current_state>,intensity:<current_intensity>}
+// {reset:1} perform soft reset of the esp
+// {delay_off:1} initiate delay off timer
+// {info:1} request to send status info
 // Commands sent to <location>/light/<which_light>/command
 // {state:1,intensity:255}
 
@@ -40,13 +43,13 @@
 #ifdef ARDUINO_AVR_DIGISPARK
 #define STEP_DELAY 16 // Delay before next brightness step in ms
 #endif
-#define BRIGHTNESS_MIN 64 // Minimum brightness level
+#define BRIGHTNESS_MIN 50 // Minimum brightness level
 #define BRIGHTNESS_MAX 255 // Maximum brightness level
 #define DELAY_OFF_TIME 15000 // Delay before turning off in milliseconds
 
 //R = (255 * log10(2))/(log10(255)); // Calculate the R value required for logatithmic dimming
 //R = (255 * log10(2))/(log10(255 - (BRIGHTNESS_MIN / 2) )); // Alternative: Adjusted for better minimun values for startup
-#define R 31.897513915796375228513177 // Used for the logarhythmic LED fading formula
+#define R 31.897513915796375228513177 // Magic!! Used for the logarhythmic LED fading formula
 
 // MQTT command defines
 #define MQTT_CMD_ERROR -1     // MQTT command not set || error
@@ -142,9 +145,11 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
 
   // Message parser
   if(topic!=(char*)"housekeeping"){
+    #ifdef DEBUG 
     printf("Command received, parsing ...\n");
+    #endif
     // Messages to be parsed: 
-    // {state:<0...5>,intensity:<0...255>}
+    // {state:<0...4],intensity:<0...255>}
     StaticJsonDocument<200> doc;
 
     // Deserialize the JSON document
@@ -152,7 +157,9 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
 
     // Test if parsing succeeds.
     if (error) {
+      #ifdef DEBUG
       printf("JSON deserialization failed: %s.\n", error.c_str());
+      #endif
       return;
     }
 
@@ -179,17 +186,23 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
     // Check validity of values passed
     if (cmd_state < 0 || cmd_state >= MAX_STATES) {
       // Invalid state
+      #ifdef DEBUG
       printf("Error: state out of bounds (%d)\n", cmd_state);
+      #endif
       mqtt::command.state = 0;
       //return;
     } else {
       mqtt::command.state = cmd_state;
     }
-    if (cmd_intensity < 0 || cmd_intensity > 255 ) {
+    if (cmd_intensity < 0) {
       // Invalid intensity
+      #ifdef DEBUG
       printf("Error: intensity out of bounds (%d)\n", cmd_intensity);
+      #endif
       mqtt::command.intensity = 0;
       //return;
+    } else if (cmd_intensity > 255) {
+      mqtt::command.intensity = 255;
     } else {
       mqtt::command.intensity = cmd_intensity;
     }
@@ -247,8 +260,11 @@ int changeState(int newState) {
   return newState;
 }
 
-void setTarget(int target, int step, int &brightnessCurrent, 
-               int &brightnessTarget, int &brightnessStep) 
+void setTarget(int target, 
+               int step, 
+               int &brightnessCurrent, 
+               int &brightnessTarget, 
+               int &brightnessStep) 
 {
   // This sets the target intensity value for the light
   // and the step value of how fast to get there.
@@ -257,9 +273,12 @@ void setTarget(int target, int step, int &brightnessCurrent,
   // int step: 0-255
   if (target > BRIGHTNESS_MAX) {
     target = BRIGHTNESS_MAX;
-  } else if (target < 0) {
+  } else if (target <= 0) {
     // Target of 0 is valid because this will turn off the light
     target = 0;
+  } else if (target < BRIGHTNESS_MIN) {
+    // Do not allow to go under minimum brightness
+    target = BRIGHTNESS_MIN;
   }
   
   if (step > 255 || step < 0) {
@@ -282,8 +301,10 @@ void setTarget(int target, int step, int &brightnessCurrent,
 }
 
 
-bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent, 
-                   int &brightnessStep, int &brightnessTarget) {
+bool stepIntensity(unsigned long &lastIntensityChange, 
+                   int &brightnessCurrent, 
+                   int &brightnessStep, 
+                   int &brightnessTarget) {
   // Steps the intensity of the light towards the target with one step
   // Returns true if change is done (target is reached)
   // Otherwise returns false
@@ -329,9 +350,9 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
 
 void setup() {
 
+  #ifdef ARDUINO_AVR_DIGISPARK
   // Set the timer prescaler
   // This sets the ATtiny85 PWM register to change PWM speed
-  #ifdef ARDUINO_AVR_DIGISPARK
   //TCCR0B = ((TCCR0B) & 0b11111000) | 0b001 ; // no prescaling (PWM ~32 kHz (measured))
   //TCCR0B = ((TCCR0B) & 0b11111000) | 0b010 ; // clk/8 from prescaler (PWM ~4.069 kHz (measured))
   TCCR0B = ((TCCR0B) & 0b11111000) | 0b011 ; // clk/64 from prescaler (PWM ~500 Hz (measured))
@@ -364,8 +385,12 @@ void setup() {
     ESP.restart();
   }
   configTime(0, 0, "au.pool.ntp.org"); // Get UTC time over NTP
+  #ifdef DEBUG
   printf("Time set to: %lld\n", time(&now));
+  #endif
 
+  // Set the timer prescaler
+  // This sets the ATtiny85 PWM register to change PWM speed
   // Port defaults to 8266
   ArduinoOTA.setPort(8266);
 
@@ -416,6 +441,7 @@ void setup() {
   #endif // For ESP8266
 }
 
+#ifdef ARDUINO_ARCH_ESP8266
 OnTick_t cronCbOn(int &brightnessTargetCron, int &brightnessCurrent, int &brightnessTarget, int &brightnessStep) {
   // Turn off the light
   setTarget(brightnessTargetCron, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent, brightnessTarget, brightnessStep);
@@ -427,6 +453,7 @@ OnTick_t cronCbOff(int &brightnessCurrent, int &brightnessTarget, int &brightnes
   setTarget(0, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent, brightnessTarget, brightnessStep);
   return 0;
 }
+#endif
 
 void loop() {
 
@@ -440,10 +467,12 @@ void loop() {
 
   static bool longclickActive = false; // To identify if a long click is active
 
+  #ifdef ARDUINO_ARCH_ESP8266
   static int brightnessTargetCron = 128; // Intenstiy for cron turning on
 
   static CronId cronOn;
   static CronId cronOff;
+  #endif
 
   #ifdef ARDUINO_ARCH_ESP8266
   // OTA check
@@ -516,7 +545,7 @@ void loop() {
           lastBrightness = brightnessCurrent;
 
           // First set the brightness down a bit to show its about to turn off
-          brightnessCurrent = brightnessCurrent - 32;
+          brightnessCurrent = brightnessCurrent - 32 < BRIGHTNESS_MIN ? BRIGHTNESS_MIN : brightnessCurrent - 32;
           stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep, brightnessTarget); // Apply the brightness change
           
           // Delay for next intensity change
@@ -533,9 +562,9 @@ void loop() {
     // Reset the flag
     mqtt::command.flag = false;
   }
-  #endif
 
   Cron.delay(); // Call in loop for hanlding cron
+  #endif
 
   touch.update(); // Make sure to check for button press at least every 30ms
 
@@ -564,7 +593,7 @@ void loop() {
         lastBrightness = brightnessCurrent;
 
         // First set the brightness down a bit to show its about to turn off
-        brightnessCurrent = brightnessCurrent - 32;
+        brightnessCurrent = brightnessCurrent - 32 < BRIGHTNESS_MIN ? BRIGHTNESS_MIN : brightnessCurrent - 32;
         stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep, brightnessTarget); // Apply the brightness change
         
         // Delay for next intensity change
