@@ -19,11 +19,11 @@
 
 // Board ID
 // Companionway light (IP 192.168.5.120)
-//#define BOARDID "light_companionway"
-//#define LIGHTID "companionway/light/main"
+#define BOARDID "light_companionway"
+#define LIGHTID "companionway/light/main"
 // Salon light 
-#define BOARDID "light_salon"
-#define LIGHTID "salon/light/main" // Topic to ID the light for MQTT control
+//#define BOARDID "light_salon"
+//#define LIGHTID "salon/light/main" // Topic to ID the light for MQTT control
 
 // Pins
 #define GATE_WHITE 0 // Gate pin of white light
@@ -54,10 +54,11 @@
 #define MQTT_CMD_ADJ 0        // MQTT command is for adjusting light
 #define MQTT_CMD_CRON 1       // MQTT command for setting cron
 #define MQTT_CMD_RESET 2      // MQTT command for resetting board
-#define MQTT_CMD_INFO 3      // MQTT command for requesting to send current state
+#define MQTT_CMD_INFO 3       // MQTT command for requesting to send current state
+#define MQTT_CMD_DELAY 4      // MQTT command for delay off
 
 // DEBUG
-#define DEBUG // DEBUGging flag
+//#define DEBUG // DEBUGging flag
 
 // State machine
 enum lightStates {
@@ -156,25 +157,27 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       return;
     }
 
-    int cmd_reset = -1; // No reset
     int cmd_state = lightStates::MAX_STATES;
     int cmd_intensity = -1;
-    int cmd_info = 0;
-    const char* cmd_cronStr = NULL;
 
     if (doc["reset"] == 1) {
       // Reset command given
-      cmd_reset = 1;
+      mqtt::command.action = MQTT_CMD_RESET;
     } else if (doc["info"] == 1) {
-      cmd_info = 1;
+      mqtt::command.action = MQTT_CMD_INFO;
+    } else if (doc["delay_off"] == 1) {
+      mqtt::command.action = MQTT_CMD_DELAY;
     } else {
       cmd_state = doc["state"];
       cmd_intensity = doc["intensity"];
-      if (doc["cronStr"] != "\0") {
-        cmd_cronStr = doc["cronStr"];
-      }
+      mqtt::command.action = MQTT_CMD_ADJ;
+      //if (doc["cronStr"] != "\0") {
+      //  mqtt::command.action = MQTT_CMD_CRON;
+      //  mqtt::command.cronStr = doc["cronStr"];
+      //}
     }
 
+    // Check validity of values passed
     if (cmd_state < 0 || cmd_state >= MAX_STATES) {
       // Invalid state
       printf("Error: state out of bounds (%d)\n", cmd_state);
@@ -192,20 +195,6 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       mqtt::command.intensity = cmd_intensity;
     }
 
-    mqtt::command.cronStr = NULL;
-    if (cmd_reset == 1) {
-      // Reset command received
-      mqtt::command.action = MQTT_CMD_RESET;
-    } else if (cmd_info == 1) {
-      mqtt::command.action = MQTT_CMD_INFO;
-    } else if (cmd_cronStr != NULL) {
-      // Cron command received
-      mqtt::command.action = MQTT_CMD_CRON;
-      mqtt::command.cronStr = cmd_cronStr;
-    } else {
-      mqtt::command.action = MQTT_CMD_ADJ;
-    }
-    
     // Set flag for new command received
     mqtt::command.flag = true;
   }
@@ -517,10 +506,27 @@ void loop() {
         // Send the current state over MQTT
         payload += String("{\"state\":");
         payload += String(lightState);
-        payload += String(",\"intensity\":}");
+        payload += String(",\"intensity\":");
         payload += String(brightnessCurrent);
         payload += String("}");
         mqtt::client.publish(LIGHTID, payload.c_str(), true);
+      break;
+      case MQTT_CMD_DELAY:
+        if (lightState == MANUAL) {
+          // --> Turn off light with delay
+          lastBrightness = brightnessCurrent;
+
+          // First set the brightness down a bit to show its about to turn off
+          brightnessCurrent = brightnessCurrent - 32;
+          stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep, brightnessTarget); // Apply the brightness change
+          
+          // Delay for next intensity change
+          lastIntensityChange = millis() + DELAY_OFF_TIME;
+          
+          // Target is off
+          setTarget(0, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent, brightnessTarget, brightnessStep);
+          changeState(DELAY_OFF);
+        }
       break;
       default:
       break;
@@ -695,6 +701,8 @@ void loop() {
     printf("Cutoff at 0 brightness!\n");
     #endif
   }
+
+
 
 
 }
