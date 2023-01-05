@@ -18,12 +18,11 @@
 #endif
 
 // Board ID
-// Companionway light (IP 192.168.5.120)
-#define BOARDID "light_companionway"
-#define LIGHTID "companionway/light/main"
+//#define BOARDID "light_companionway"
+//#define LIGHTID "companionway/light/main"
 // Salon light 
-//#define BOARDID "light_salon"
-//#define LIGHTID "salon/light/main" // Topic to ID the light for MQTT control
+#define BOARDID "light_salon"
+#define LIGHTID "salon/light/main" // Topic to ID the light for MQTT control
 
 // Pins
 #define GATE_WHITE 0 // Gate pin of white light
@@ -701,8 +700,5 @@ void loop() {
     printf("Cutoff at 0 brightness!\n");
     #endif
   }
-
-
-
 
 }
