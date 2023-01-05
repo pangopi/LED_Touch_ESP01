@@ -54,6 +54,7 @@
 #define MQTT_CMD_ADJ 0        // MQTT command is for adjusting light
 #define MQTT_CMD_CRON 1       // MQTT command for setting cron
 #define MQTT_CMD_RESET 2      // MQTT command for resetting board
+#define MQTT_CMD_INFO 3      // MQTT command for requesting to send current state
 
 // DEBUG
 #define DEBUG // DEBUGging flag
@@ -156,12 +157,16 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
     }
 
     int cmd_reset = -1; // No reset
-    int cmd_state = 5;
+    int cmd_state = lightStates::MAX_STATES;
     int cmd_intensity = -1;
+    int cmd_info = 0;
     const char* cmd_cronStr = NULL;
+
     if (doc["reset"] == 1) {
       // Reset command given
       cmd_reset = 1;
+    } else if (doc["info"] == 1) {
+      cmd_info = 1;
     } else {
       cmd_state = doc["state"];
       cmd_intensity = doc["intensity"];
@@ -170,11 +175,7 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       }
     }
 
-    #ifdef DEBUG
-    printf("Command change state=%d, intensity=%d \n", cmd_state, cmd_intensity);
-    #endif
-
-    if (cmd_state < 0 || cmd_state > MAX_STATES) {
+    if (cmd_state < 0 || cmd_state >= MAX_STATES) {
       // Invalid state
       printf("Error: state out of bounds (%d)\n", cmd_state);
       mqtt::command.state = 0;
@@ -191,17 +192,18 @@ void mqtt::mqtt_cb(char* topic, byte* message, unsigned int length) {
       mqtt::command.intensity = cmd_intensity;
     }
 
+    mqtt::command.cronStr = NULL;
     if (cmd_reset == 1) {
       // Reset command received
       mqtt::command.action = MQTT_CMD_RESET;
-      mqtt::command.cronStr = NULL;
+    } else if (cmd_info == 1) {
+      mqtt::command.action = MQTT_CMD_INFO;
     } else if (cmd_cronStr != NULL) {
       // Cron command received
       mqtt::command.action = MQTT_CMD_CRON;
       mqtt::command.cronStr = cmd_cronStr;
     } else {
       mqtt::command.action = MQTT_CMD_ADJ;
-      mqtt::command.cronStr = NULL;
     }
     
     // Set flag for new command received
@@ -238,7 +240,7 @@ int changeState(lightStates newState) {
 
   // Publish new state to MQTT
   #ifdef ARDUINO_ARCH_ESP8266
-  String payload = String("{\"State\":");
+  String payload = String("{\"state\":");
   payload += String(newState);
   payload += String("}");
   mqtt::client.publish(LIGHTID, payload.c_str(), true);
@@ -327,7 +329,7 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
 
     // Publish new state to MQTT
   #ifdef ARDUINO_ARCH_ESP8266
-  String payload = String("{\"Intensity\":");
+  String payload = String("{\"intensity\":");
   payload += String(brightnessCurrent);
   payload += String("}");
   mqtt::client.publish(LIGHTID, payload.c_str(), true);
@@ -458,6 +460,8 @@ void loop() {
   #ifdef ARDUINO_ARCH_ESP8266
   // OTA check
   ArduinoOTA.handle();
+  
+  String payload = ""; 
 
   // Keep connected to MQTT broker
   if (WiFi.status() == WL_CONNECTED) {
@@ -508,6 +512,15 @@ void loop() {
         printf("Resettig ESP ...");
         #endif
         ESP.restart();
+      break;
+      case MQTT_CMD_INFO:
+        // Send the current state over MQTT
+        payload += String("{\"state\":");
+        payload += String(lightState);
+        payload += String(",\"intensity\":}");
+        payload += String(brightnessCurrent);
+        payload += String("}");
+        mqtt::client.publish(LIGHTID, payload.c_str(), true);
       break;
       default:
       break;
