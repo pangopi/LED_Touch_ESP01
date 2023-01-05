@@ -69,7 +69,8 @@
         Intensity: <b id="intensitySalon">Unknown</b>
     </p>
     <p>
-        <input type="range" min="0" max="255" value="0" class="slider" id="sliderSalon" />
+        <input type="range" min="0" max="255" value="0" class="slider" id="sliderSalon" 
+            oninput='publish("salon/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}")'/>
         <div style="white-space: nowrap;">
         <button onclick='changeIntensity("salon",-10)'>&lt;</button> 
         <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":64}")'>Min</button> 
@@ -110,16 +111,6 @@
     <button onclick='publish("salon/light/galley/command", "{\"state\":2,\"intensity\":255}")'>Full</button>
     -->
 
-    <script>
-
-        var sliderSalon = document.getElementById("sliderSalon");
-
-        // Update the current slider value (each time you drag the slider handle)
-        sliderSalon.oninput = function() {
-            publish("salon/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}");
-        } 
-    </script>
-
     <div class="separator-h"></div>
 
     <p>
@@ -130,7 +121,8 @@
         Intensity: <b id="intensityCompanionway">Unknown</b>
     </p>
     <p>
-        <input type="range" min="0" max="255" value="0" class="slider" id="sliderCompanionway"/>
+        <input type="range" min="0" max="255" value="0" class="slider" id="sliderCompanionway" 
+            oninput='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}")'/>
         <div style="white-space: nowrap;">
         <button onclick='changeIntensity("companionway",-10)'>&lt;</button> 
         <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":64}")'>Min</button> 
@@ -170,17 +162,6 @@
     <button onclick='publish("salon/light/galley/command", "{\"state\":2,\"intensity\":192}")'>3/4</button> 
     <button onclick='publish("salon/light/galley/command", "{\"state\":2,\"intensity\":255}")'>Full</button>
     -->
-
-    <script>
-
-        var sliderCompanionway = document.getElementById("sliderCompanionway");
-
-        // Update the current slider value (each time you drag the slider handle)
-        sliderCompanionway.oninput = function() {
-            publish("companionway/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}");
-        } 
-    </script>
-
 
 </div>
 
