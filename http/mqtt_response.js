@@ -28,8 +28,8 @@ client.onMessageArrived = function (message) {
             salon[0] = status.state;
         }
         if (status.intensity >= 0) {
-            document.getElementById('intensitySalon').innerHTML = status.intensity;
-            document.getElementById('sliderSalon').value = status.intensity;
+            document.getElementById('intensitySalon').innerHTML = Math.round(map(status.intensity, 48, 255, 0, 100));
+            document.getElementById('sliderSalon').value = Math.round(map(status.intensity, 48, 255, 0, 100));
             salon[1] = status.intensity;
         }
     }
@@ -41,11 +41,19 @@ client.onMessageArrived = function (message) {
             companionway[0] = status.state;
         }
         if (status.intensity >= 0) {
-            document.getElementById('intensityCompanionway').innerHTML = status.intensity;
-            document.getElementById('sliderCompanionway').value = status.intensity;
+            document.getElementById('intensityCompanionway').innerHTML = Math.round(map(status.intensity, 48, 255, 0, 100));
+            document.getElementById('sliderCompanionway').value = Math.round(map(status.intensity, 48, 255, 0, 100));
             companionway[1] = status.intensity;
         }
     }
+}
+
+function map(x, in_min, in_max, out_min, out_max) {
+    let value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    if (value < out_min) {
+        value = out_min;
+    }
+    return value;
 }
 
 // Called when the connection is made

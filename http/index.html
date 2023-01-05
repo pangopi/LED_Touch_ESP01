@@ -66,16 +66,18 @@
     </p>
     <p>
         State: <b id="stateSalon">Unknown</b>
-        Intensity: <b id="intensitySalon">Unknown</b>
+        Intensity: <b id="intensitySalon">Unknown</b><b>%</b>
     </p>
     <p>
-        <input type="range" min="0" max="255" value="0" class="slider" id="sliderSalon" 
-            oninput='publish("salon/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}")'/>
+        <input type="range" min="0" max="100" class="slider" id="sliderSalon" 
+            oninput='publish("salon/light/main/command", 
+                             "{\"state\":2,\"intensity\":" + Math.round(map(this.value, 0, 100, 48, 255)) + "}")'/>
         <div style="white-space: nowrap;">
         <button onclick='changeIntensity("salon",-10)'>&lt;</button> 
-        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":64}")'>Min</button> 
-        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":128}")'>Half</button> 
-        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":192}")'>3/4</button> 
+        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":50}")'>Min</button> 
+        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":100}")'>25%</button> 
+        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":152}")'>50%</button> 
+        <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":203}")'>75%</button> 
         <button onclick='publish("salon/light/main/command", "{\"state\":2,\"intensity\":255}")'>Max</button>
         <button onclick='changeIntensity("salon",10)'>&gt;</button> 
         </div>
@@ -118,16 +120,18 @@
     </p>
     <p>
         State: <b id="stateCompanionway">Unknown</b>
-        Intensity: <b id="intensityCompanionway">Unknown</b>
+        Intensity: <b id="intensityCompanionway">Unknown</b><b>%</b>
     </p>
     <p>
-        <input type="range" min="0" max="255" value="0" class="slider" id="sliderCompanionway" 
-            oninput='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":" + this.value + "}")'/>
+        <input type="range" min="0" max="100" value="0" class="slider" id="sliderCompanionway" 
+            oninput='publish("companionway/light/main/command", 
+                             "{\"state\":2,\"intensity\":" + Math.round(map(this.value, 0, 100, 48, 255)) + "}")'/>
         <div style="white-space: nowrap;">
         <button onclick='changeIntensity("companionway",-10)'>&lt;</button> 
-        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":64}")'>Min</button> 
-        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":128}")'>Half</button> 
-        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":192}")'>3/4</button> 
+        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":50}")'>Min</button> 
+        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":100}")'>25%</button> 
+        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":152}")'>50%</button> 
+        <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":203}")'>75%</button> 
         <button onclick='publish("companionway/light/main/command", "{\"state\":2,\"intensity\":255}")'>Max</button>
         <button onclick='changeIntensity("companionway",10)'>&gt;</button> 
         </div>
