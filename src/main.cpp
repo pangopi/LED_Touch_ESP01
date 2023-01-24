@@ -466,6 +466,8 @@ void loop() {
   static unsigned long lastIntensityChange = 0; // For governing intensity changes
 
   static bool longclickActive = false; // To identify if a long click is active
+  static unsigned long longClickStartTime = 0UL;
+  static bool disableTouchSensor = false; // Flag to disable the touch input sensor
 
   #ifdef ARDUINO_ARCH_ESP8266
   static int brightnessTargetCron = 128; // Intenstiy for cron turning on
@@ -568,6 +570,19 @@ void loop() {
 
   touch.update(); // Make sure to check for button press at least every 30ms
 
+  if (disableTouchSensor) {
+    // The touch sensor is disabled
+    // Check if it's still long clicking
+    if (touch.isLongClick() && longclickActive) {
+      goto execute;
+    } else {
+      // Re-enable the touch sensor
+      longclickActive = false;
+      disableTouchSensor = false;
+      longClickStartTime = 0UL;
+    }
+  }
+
   if (touch.isSingleClick()) {
     // Single click
     #ifdef DEBUG
@@ -656,11 +671,35 @@ void loop() {
   }
 
   if (touch.isLongClick() || longclickActive == true) {
-    longclickActive = true;
     // Long click starts the increasing routine
+    
     #ifdef DEBUG
     printf("--- Long Click! ---\n");
     #endif
+
+    // The problem with long click:
+    // If the touch sensor goes rogue it will keep long clicking for a long
+    // time. Here we try to detect that and disable the touch sensor temporarily
+    // until the sensor has regained itself
+    // The touch senser can go rogue for all sorts of reasons and most of them
+    // are temporary so we will enable the touch senser automatically again if
+    // the sensor is behaving again.
+    // Possible reasons:
+    // - Flies/insects are activating the sensor
+    // - Atmospheric conditions, i.e. electrical storms
+    // - Water/Moisture
+    // - Bad connection
+    // - Etc., etc.
+    if (longclickActive == false) {
+      longClickStartTime = millis();
+    }
+    if (millis() - longClickStartTime > 15e3) {
+      // Longpress is activated for over 15 seconds
+      disableTouchSensor = true;
+      goto execute;
+    }
+
+    longclickActive = true;
 
     switch (lightState) {
       case OFF:
@@ -672,7 +711,13 @@ void loop() {
       case CHANGING:
         // --> CHANGING
         // Set new target a little further then now
-        setTarget(brightnessCurrent + BRIGHTNESS_STEP_DEFAULT, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent, brightnessTarget, brightnessStep);
+        if (brightnessCurrent >= BRIGHTNESS_MAX) {
+          // Maximum brightness reached, do nothing
+          break;
+        }
+        setTarget(brightnessCurrent + BRIGHTNESS_STEP_DEFAULT,
+                  BRIGHTNESS_STEP_DEFAULT, brightnessCurrent, brightnessTarget,
+                  brightnessStep);
         changeState(CHANGING);
         break;
       case DELAY_OFF:
@@ -696,6 +741,7 @@ void loop() {
     longclickActive = false;
   }
 
+  execute:
   // Execute current state
   if (lightState == CHANGING || lightState == DELAY_OFF) {
     // Brightness is 0 and the target is set lower then the min brightness then switch to OFF
