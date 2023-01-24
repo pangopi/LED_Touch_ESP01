@@ -1,9 +1,9 @@
 // Constants
-const states = ["Off", "On", "Changing", "Delay Off"]; 
+const states = ["Off", "On", "Changing", "Delay Off"];
 
 // Variables
 // [status, intensity]
-let salon = [0 , 0];
+let salon = [0, 0];
 let companionway = [0, 0];
 
 // Create a client instance: Broker, Port, Websocket Path, Client ID
@@ -11,7 +11,7 @@ client = new Paho.MQTT.Client("192.168.5.1", Number(9001), "/ws", "Websocket" + 
 
 // set callback handlers
 client.onConnectionLost = function (responseObject) {
-    console.log("Connection Lost: "+responseObject.errorMessage);
+    console.log("Connection Lost: " + responseObject.errorMessage);
     connect();
 }
 
@@ -57,7 +57,7 @@ function map(x, in_min, in_max, out_min, out_max) {
 }
 
 // Called when the connection is made
-function onConnect(){
+function onConnect() {
     console.log("Connected!");
 
     // Send message
@@ -69,7 +69,7 @@ function onConnect(){
     client.subscribe("+/light/main");
     client.subscribe("+/light/main/command");
     client.subscribe("housekeeping");
-    
+
     // Request current light status for all lights
     let payload = new Paho.MQTT.Message("{\"info\":1}");
     payload.destinationName = "salon/light/main/command";
@@ -81,34 +81,34 @@ function onConnect(){
 }
 
 // Connect the client, with a Username and Password
-function connect(){
+function connect() {
     client.connect({
-        onSuccess: onConnect, 
-        userName : "pangolin",
-        password : "mikeharris"
+        onSuccess: onConnect,
+        userName: "pangolin",
+        password: "mikeharris"
     });
 }
 
-function changeIntensity(lightid, amount){
+function changeIntensity(lightid, amount) {
     // Change the intensity with an arbitrary amount
     if (lightid == "salon") {
         if (salon[1] == 0 && amount > 0) {
             publish(`salon/light/main/command`, `{"state":2,"intensity":64}`);
         } else {
-            publish(`salon/light/main/command`, `{"state":2,"intensity":${salon[1]+amount}}`);
+            publish(`salon/light/main/command`, `{"state":2,"intensity":${salon[1] + amount}}`);
         }
     }
     if (lightid == "companionway") {
         if (companionway[1] == 0 && amount > 0) {
             publish(`companionway/light/main/command`, `{"state":2,"intensity":64}`);
         } else {
-            publish(`companionway/light/main/command`, `{"state":2,"intensity":${companionway[1]+amount}}`);
+            publish(`companionway/light/main/command`, `{"state":2,"intensity":${companionway[1] + amount}}`);
         }
     }
 
 }
 
-function publish(topic, payload){
+function publish(topic, payload) {
     // Publish to MQTT
     var message = new Paho.MQTT.Message(payload);
     message.destinationName = topic;
