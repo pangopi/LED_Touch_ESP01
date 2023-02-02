@@ -10,7 +10,7 @@
 
 #include <Arduino.h>
 
-#include "PinButton.h"
+
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ArduinoOTA.h>
 
@@ -18,9 +18,19 @@
 #include "CronAlarms.h"
 #include "PubSubClient.h"
 #endif
+
 #ifdef ARDUINO_AVR_DIGISPARK
 #include <Print.h>
 #endif
+
+#include "PinButton.h"
+
+// Secrets
+#define SSID "YOUR SSID"
+#define PASS "YOUR_PASSWORD"
+#define MQTT_UNAME "YOUR_MQTT_UNAME"
+#define MQTT_PW "YOUR_MQTT_PW"
+#define OTA_PW "YOUT_OTA_PW"
 
 // Board ID
 //#define BOARDID "light_companionway"
@@ -83,8 +93,8 @@ enum lightStates lightState;
 // MQTT
 namespace mqtt {
 IPAddress serverIP(192, 168, 5, 1);
-const char *user = "pangolin";
-const char *password = "mikeharris";
+const char *user = MQTT_UNAME;
+const char *password = MQTT_PW;
 const char *id = BOARDID;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -376,7 +386,7 @@ void setup() {
 
   // WiFi
   WiFi.mode(WIFI_STA);
-  WiFi.begin("PangoPi", "mikeharris");
+  WiFi.begin(SSID, PASS);
   while (WiFi.waitForConnectResult() != WL_CONNECTED) {
 #ifdef DEBUG
     printf("Connection failed. Rebooting ... \n");
@@ -398,7 +408,7 @@ void setup() {
   ArduinoOTA.setHostname(BOARDID);
 
   // No authentication by default
-  ArduinoOTA.setPassword((const char *)"mikeharris");
+  ArduinoOTA.setPassword((const char *)OTA_PW);
   // ArduinoOTA.setPassword(NULL);
 
   ArduinoOTA.onStart([]() {
