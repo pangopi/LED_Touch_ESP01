@@ -26,11 +26,11 @@
 #include "PinButton.h"
 
 // Secrets
-#define SSID "YOUR SSID"
-#define PASS "YOUR_PASSWORD"
-#define MQTT_UNAME "YOUR_MQTT_UNAME"
-#define MQTT_PW "YOUR_MQTT_PW"
-#define OTA_PW "YOUT_OTA_PW"
+#define SSID "SSID"
+#define PASS "PASSW"
+#define MQTT_UNAME "MQTT_UNAME"
+#define MQTT_PW "MQTT_PASSW"
+#define OTA_PW "OTA_PASSW"
 
 // Board ID
 //#define BOARDID "light_companionway"
@@ -58,10 +58,14 @@
 #define BRIGHTNESS_MIN 50     // Minimum brightness level
 #define BRIGHTNESS_MAX 255    // Maximum brightness level
 #define DELAY_OFF_TIME 15000  // Delay before turning off in milliseconds
+#ifdef ARDUINO_ARCH_ESP8266
+#define WIFI_RECONNECT_INTERVAL 20000UL  // Interval before attempting to connect again
+#endif
 
 // R = (255 * log10(2))/(log10(255)); // Calculate the R value required for
-// logatithmic dimming R = (255 * log10(2))/(log10(255 - (BRIGHTNESS_MIN / 2)
-// )); // Alternative: Adjusted for better minimun values for startup
+// logatithmic dimming 
+// Alternatively use R = (255 * log10(2))/(log10(255 - (BRIGHTNESS_MIN / 2))); for better 
+// minimun values for startup (not used here)
 #define R \
   31.897513915796375228513177  // Magic!! Used for the logarhythmic LED fading
                                // formula
@@ -75,7 +79,7 @@
 #define MQTT_CMD_DELAY 4   // MQTT command for delay off
 
 // DEBUG
-//#define DEBUG // DEBUGging flag
+#define DEBUG // DEBUGging flag
 
 // State machine
 enum lightStates {
@@ -92,29 +96,30 @@ enum lightStates lightState;
 #ifdef ARDUINO_ARCH_ESP8266
 // MQTT
 namespace mqtt {
-IPAddress serverIP(192, 168, 5, 1);
-const char *user = MQTT_UNAME;
-const char *password = MQTT_PW;
-const char *id = BOARDID;
-WiFiClient espClient;
-PubSubClient client(espClient);
-long lastReconnectAttempt{0};
-bool reconnect();
-// long lastmsg { 0 };
-// char msg[50];
-// int value { 0 };
-void mqtt_cb(char *, uint8_t *, unsigned int);
+  IPAddress serverIP(192, 168, 5, 1);
+  const char *user = MQTT_UNAME;
+  const char *password = MQTT_PW;
+  const char *id = BOARDID;
+  WiFiClient espClient;
+  PubSubClient client(espClient);
+  unsigned long lastReconnectAttempt{0};
+  bool reconnect();
+  // long lastmsg { 0 };
+  // char msg[50];
+  // int value { 0 };
+  void mqtt_cb(char *, uint8_t *, unsigned int);
 
-struct commands {
-  bool flag = false;
-  int action = MQTT_CMD_ERROR;
-  int state = 2;
-  int intensity = 128;
-  const char *cronStr = NULL;  // min hour day-of-month month day-of-week
-} command;
+  struct commands {
+    bool flag = false;
+    int action = MQTT_CMD_ERROR;
+    int state = 2;
+    int intensity = 128;
+    const char *cronStr = NULL;  // min hour day-of-month month day-of-week
+  } command;
 }  // namespace mqtt
 
 time_t now;  // Current timestamp
+unsigned long lastWiFiConnectionAttempt { WIFI_RECONNECT_INTERVAL };
 
 #endif
 
@@ -143,6 +148,101 @@ Release: (On double or long press only)
 PinButton touch(BUTTON1_PIN);  // Button object for detecting different presses
 
 #ifdef ARDUINO_ARCH_ESP8266
+
+void WiFiconnect() {
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    // Already connected
+    return;
+  } else if (millis() - lastWiFiConnectionAttempt < WIFI_RECONNECT_INTERVAL) {
+    // Not yet ready to try again
+    return;
+  }
+  
+  // Connect to the WiFi
+  // WiFi
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, PASS);
+  for (int i = 0; i < 10; i++)
+  {
+#ifdef DEBUG
+    printf("Connecting to WiFi ... \n");
+#endif
+    if (WiFi.status() == WL_CONNECTED) {
+      break;
+    } else {
+      delay(500);
+    }
+  }
+
+  if ( WiFi.status() == WL_CONNECTED ) {
+    // Connected to WiFi
+    // Start all connected services
+    configTime(0, 0, "au.pool.ntp.org");  // Get UTC time over NTP
+    #ifdef DEBUG
+    printf("Time set to: %lld\n", time(&now));
+    #endif
+
+    #ifdef DEBUG
+    printf("Ready \nIP address: %s\n", WiFi.localIP().toString().c_str());
+    #endif
+
+
+  } else {
+    // No WiFi connection could be established
+    lastWiFiConnectionAttempt = millis();
+    return;
+  }
+
+}
+
+void StartOTA() {
+
+  // Port defaults to 8266
+  ArduinoOTA.setPort(8266);
+
+  // Hostname defaults to esp8266-[ChipID]
+  ArduinoOTA.setHostname(BOARDID);
+
+  // No authentication by default
+  ArduinoOTA.setPassword((const char *)OTA_PW);
+  // ArduinoOTA.setPassword(NULL);
+
+  ArduinoOTA.onStart([]() {
+#ifdef DEBUG
+    printf("OTA Start\n");
+#endif
+  });
+  ArduinoOTA.onEnd([]() {
+#ifdef DEBUG
+    printf("\nOTA End\n");
+#endif
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+#ifdef DEBUG
+    printf("OTA Progress: %u%%\r", (progress / (total / 100)));
+#endif
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+#ifdef DEBUG
+    printf("OTA Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR)
+      printf("Auth Failed\n");
+    else if (error == OTA_BEGIN_ERROR)
+      printf("Begin Failed\n");
+    else if (error == OTA_CONNECT_ERROR)
+      printf("Connect Failed\n");
+    else if (error == OTA_RECEIVE_ERROR)
+      printf("Receive Failed\n");
+    else if (error == OTA_END_ERROR)
+      printf("End Failed\n");
+#endif
+  });
+  ArduinoOTA.begin();
+
+}
+
+
 void mqtt::mqtt_cb(char *topic, byte *message, unsigned int length) {
   // Callback when message arrives on MQTT
 
@@ -233,7 +333,7 @@ bool mqtt::reconnect() {
   if (mqtt::client.connect(mqtt::id, mqtt::user, mqtt::password)) {
 // Once connected, publish an announcement to the housekeeing topic
 #ifdef DEBUG
-// printf("Connected to MQTT broker.\n");
+    printf("Connected to MQTT broker.\n");
 #endif
 
     mqtt::client.publish("housekeeping", BOARDID);
@@ -242,7 +342,7 @@ bool mqtt::reconnect() {
     mqtt::client.subscribe(((String)LIGHTID + (String) "/command").c_str());
   } else {
 #ifdef DEBUG
-    printf("Failed to connect ot MQTT broker. \n");
+    printf("Failed to connect to MQTT broker. \n");
 #endif
   }
   return mqtt::client.connected();
@@ -384,68 +484,8 @@ void setup() {
   // analogWriteRange(4096);
   analogWriteFreq(200);
 
-  // WiFi
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASS);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-#ifdef DEBUG
-    printf("Connection failed. Rebooting ... \n");
-#endif
-    delay(5000);
-    ESP.restart();
-  }
-  configTime(0, 0, "au.pool.ntp.org");  // Get UTC time over NTP
-#ifdef DEBUG
-  printf("Time set to: %lld\n", time(&now));
-#endif
-
-  // Set the timer prescaler
-  // This sets the ATtiny85 PWM register to change PWM speed
-  // Port defaults to 8266
-  ArduinoOTA.setPort(8266);
-
-  // Hostname defaults to esp8266-[ChipID]
-  ArduinoOTA.setHostname(BOARDID);
-
-  // No authentication by default
-  ArduinoOTA.setPassword((const char *)OTA_PW);
-  // ArduinoOTA.setPassword(NULL);
-
-  ArduinoOTA.onStart([]() {
-#ifdef DEBUG
-    printf("OTA Start\n");
-#endif
-  });
-  ArduinoOTA.onEnd([]() {
-#ifdef DEBUG
-    printf("\nOTA End\n");
-#endif
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-#ifdef DEBUG
-    printf("OTA Progress: %u%%\r", (progress / (total / 100)));
-#endif
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-#ifdef DEBUG
-    printf("OTA Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR)
-      printf("Auth Failed\n");
-    else if (error == OTA_BEGIN_ERROR)
-      printf("Begin Failed\n");
-    else if (error == OTA_CONNECT_ERROR)
-      printf("Connect Failed\n");
-    else if (error == OTA_RECEIVE_ERROR)
-      printf("Receive Failed\n");
-    else if (error == OTA_END_ERROR)
-      printf("End Failed\n");
-#endif
-  });
-  ArduinoOTA.begin();
-
-#ifdef DEBUG
-  printf("Ready \nIP address: %s\n", WiFi.localIP().toString().c_str());
-#endif
+  WiFiconnect();
+  StartOTA();
 
   // MQTT init
   // ---------
@@ -498,6 +538,8 @@ void loop() {
 #endif
 
 #ifdef ARDUINO_ARCH_ESP8266
+  // WiFi connection check
+  WiFiconnect();
   // OTA check
   ArduinoOTA.handle();
 
@@ -509,12 +551,10 @@ void loop() {
     if (!mqtt::client.connected()) {
       // Not connected, try to connect now
       long tnow = millis();
-      if (tnow - mqtt::lastReconnectAttempt > 5000) {
+      if (tnow - mqtt::lastReconnectAttempt > 10000UL) {
         mqtt::lastReconnectAttempt = tnow;
         // Attempt to reconnect
-        if (mqtt::reconnect()) {
-          mqtt::lastReconnectAttempt = 0;
-        }
+        mqtt::reconnect();
       }
     } else {
       // Client connected
@@ -604,6 +644,7 @@ void loop() {
 
   if (disableTouchSensor) {
     // The touch sensor is disabled
+    // This is built in to avoid hanging up of the touch sensor if a fly is on there or something :)
     // Check if it's still long clicking
     if (touch.isLongClick() && longclickActive) {
       goto execute;
