@@ -1,3 +1,5 @@
+// LED_Touch button and optionally WiFi controlled light
+
 // Topic structure
 // <location>/light/<which_light>
 // Messages on this topic:
@@ -26,15 +28,16 @@
 #include "PinButton.h"
 
 // Secrets
-#define SSID "SSID"
-#define PASS "PASSW"
-#define MQTT_UNAME "MQTT_UNAME"
-#define MQTT_PW "MQTT_PASSW"
-#define OTA_PW "OTA_PASSW"
+// #define SSID "SSID"
+// #define PASS "PASSW"
+// #define MQTT_UNAME "MQTT_UNAME"
+// #define MQTT_PW "MQTT_PASSW"
+// #define OTA_PW "OTA_PASSW"
+#include ".secrets.h"
 
 // Board ID
-//#define BOARDID "light_companionway"
-//#define LIGHTID "companionway/light/main"
+// #define BOARDID "light_companionway"
+// #define LIGHTID "companionway/light/main"
 // Salon light
 #define BOARDID "light_salon"
 #define LIGHTID "salon/light/main"  // Topic to ID the light for MQTT control
@@ -103,6 +106,7 @@ namespace mqtt {
   WiFiClient espClient;
   PubSubClient client(espClient);
   unsigned long lastReconnectAttempt{0};
+  unsigned long lastLoop{0};
   bool reconnect();
   // long lastmsg { 0 };
   // char msg[50];
@@ -163,10 +167,15 @@ void WiFiconnect() {
   // WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(SSID, PASS);
+
+#ifdef DEBUG
+    printf("Connecting to WiFi ... \n");
+#endif
+
   for (int i = 0; i < 10; i++)
   {
 #ifdef DEBUG
-    printf("Connecting to WiFi ... \n");
+    printf(".");
 #endif
     if (WiFi.status() == WL_CONNECTED) {
       break;
@@ -548,9 +557,9 @@ void loop() {
   // Keep connected to MQTT broker
   if (WiFi.status() == WL_CONNECTED) {
     // WiFi connection available, try connecting to MQTT
+    long tnow = millis();
     if (!mqtt::client.connected()) {
       // Not connected, try to connect now
-      long tnow = millis();
       if (tnow - mqtt::lastReconnectAttempt > 10000UL) {
         mqtt::lastReconnectAttempt = tnow;
         // Attempt to reconnect
@@ -559,7 +568,10 @@ void loop() {
     } else {
       // Client connected
       // TODO: Time this event to only go at set intervals
-      mqtt::client.loop();
+      if ( tnow - mqtt::lastLoop > 50UL ) {
+        mqtt::lastLoop = tnow;
+        mqtt::client.loop();
+      }
     }
   }
 
