@@ -426,8 +426,7 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
   // Steps the intensity of the light towards the target with one step
   // Returns true if change is done (target is reached)
   // Otherwise returns false
-  // if (millis() - lastIntensityChange >= stepDelay) {
-  if (lastIntensityChange + STEP_DELAY > millis()) {
+  if (millis() - lastIntensityChange > STEP_DELAY) {
     return false;
   }
 
