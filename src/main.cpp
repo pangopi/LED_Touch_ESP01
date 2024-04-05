@@ -82,7 +82,7 @@
 #define MQTT_CMD_DELAY 4   // MQTT command for delay off
 
 // DEBUG
-#define DEBUG // DEBUGging flag
+//#define DEBUG // DEBUGging flag
 
 // State machine
 enum lightStates {
@@ -426,7 +426,7 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
   // Steps the intensity of the light towards the target with one step
   // Returns true if change is done (target is reached)
   // Otherwise returns false
-  if (millis() - lastIntensityChange > STEP_DELAY) {
+  if (millis() - lastIntensityChange < STEP_DELAY) {
     return false;
   }
 
