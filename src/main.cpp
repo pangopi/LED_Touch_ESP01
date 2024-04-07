@@ -632,12 +632,14 @@ void loop() {
           // --> Turn off light with delay
           lastBrightness = brightnessCurrent;
 
+          /*
           // First set the brightness down a bit to show its about to turn off
           brightnessCurrent = brightnessCurrent - 32 < BRIGHTNESS_MIN
                                   ? BRIGHTNESS_MIN
                                   : brightnessCurrent - 32;
           stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep,
                         brightnessTarget);  // Apply the brightness change
+          */
 
           // Delay for next intensity change
           lastIntensityChange = millis() + DELAY_OFF_TIME;
