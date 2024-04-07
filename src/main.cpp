@@ -429,6 +429,13 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
   if (millis() - lastIntensityChange < STEP_DELAY) {
     return false;
   }
+  // Check some issues with the delay off when lastIntensityChange is set in the future
+  if (lastIntensityChange - DELAY_OFF_TIME > millis()) {
+    lastIntensityChange = millis(); 
+    return false;
+  } else if (lastIntensityChange > millis()) {
+    return false;
+  }
 
   bool changeDone = false;
   int adjustedBrightness = 0;
@@ -656,6 +663,7 @@ void loop() {
   if (disableTouchSensor) {
     // The touch sensor is disabled
     // This is built in to avoid hanging up of the touch sensor if a fly is on there or something :)
+    // Also happened a few times during an electric storm
     // Check if it's still long clicking
     if (touch.isLongClick() && longclickActive) {
       goto execute;
