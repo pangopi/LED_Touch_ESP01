@@ -60,7 +60,7 @@
 #endif
 #define BRIGHTNESS_MIN 50     // Minimum brightness level
 #define BRIGHTNESS_MAX 255    // Maximum brightness level
-#define DELAY_OFF_TIME 15000  // Delay before turning off in milliseconds
+#define DELAY_OFF_TIME_DEFAULT 15000  // Delay before turning off in milliseconds
 #ifdef ARDUINO_ARCH_ESP8266
 #define WIFI_RECONNECT_INTERVAL 20000UL  // Interval before attempting to connect again
 #endif
@@ -422,7 +422,8 @@ void setTarget(int target, int step, int &brightnessCurrent,
 }
 
 bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
-                   int &brightnessStep, int &brightnessTarget) {
+                   int &brightnessStep, int &brightnessTarget,
+                   unsigned long &delayTime) {
   // Steps the intensity of the light towards the target with one step
   // Returns true if change is done (target is reached)
   // Otherwise returns false
@@ -430,7 +431,7 @@ bool stepIntensity(unsigned long &lastIntensityChange, int &brightnessCurrent,
     return false;
   }
   // Check some issues with the delay off when lastIntensityChange is set in the future
-  if (lastIntensityChange - DELAY_OFF_TIME > millis()) {
+  if (lastIntensityChange - delayTime > millis()) {
     lastIntensityChange = millis(); 
     return false;
   } else if (lastIntensityChange > millis()) {
@@ -536,6 +537,7 @@ void loop() {
       BRIGHTNESS_STEP_DEFAULT;      // Step rate for brightness change, can be
                                     // negative
   static int lastBrightness = 128;  // Last known brightness before turning off
+  static unsigned long delayTime = DELAY_OFF_TIME_DEFAULT;
 
   static unsigned long lastIntensityChange =
       0;  // For governing intensity changes
@@ -642,7 +644,7 @@ void loop() {
           */
 
           // Delay for next intensity change
-          lastIntensityChange = millis() + DELAY_OFF_TIME;
+          lastIntensityChange = millis() + delayTime;
 
           // Target is off
           setTarget(0, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent,
@@ -693,7 +695,7 @@ void loop() {
         brightnessCurrent = BRIGHTNESS_MIN - BRIGHTNESS_STEP_DEFAULT;
         // Apply the brightness change immediately
         stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep,
-                      brightnessTarget);
+                      brightnessTarget, delayTime);
         // Set the target
         setTarget(lastBrightness, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent,
                   brightnessTarget, brightnessStep);
@@ -708,10 +710,10 @@ void loop() {
                                 ? BRIGHTNESS_MIN
                                 : brightnessCurrent - 32;
         stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep,
-                      brightnessTarget);  // Apply the brightness change
+                      brightnessTarget, delayTime);  // Apply the brightness change
 
         // Delay for next intensity change
-        lastIntensityChange = millis() + DELAY_OFF_TIME;
+        lastIntensityChange = millis() + delayTime;
 
         // Target is off
         setTarget(0, BRIGHTNESS_STEP_DEFAULT, brightnessCurrent,
@@ -851,7 +853,7 @@ execute:
     if (brightnessCurrent <= 0 && brightnessTarget < BRIGHTNESS_MIN) {
       setTarget(0, 255, brightnessCurrent, brightnessTarget, brightnessStep);
       stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep,
-                    brightnessTarget);
+                    brightnessTarget, delayTime);
       changeState(OFF);
 
 #ifdef DEBUG
@@ -860,7 +862,7 @@ execute:
     } else {
       // Execute the change required
       if (stepIntensity(lastIntensityChange, brightnessCurrent, brightnessStep,
-                        brightnessTarget) == true) {
+                        brightnessTarget, delayTime) == true) {
         // Target reached, set state to manual
         changeState(MANUAL);
       }
